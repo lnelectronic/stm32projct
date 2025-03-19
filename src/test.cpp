@@ -428,7 +428,7 @@ void test1()
 
 void handleMenu()
 {
-  //lcd.setFont(Small5x7PL);
+  //lcd.setFont(Small5x7PL); // set font
   lcd.setFont(Small5x7PL);
   lcd.setCharMinWd(5);
   lcd.setDigitMinWd(5);
@@ -465,7 +465,7 @@ void handleMenu()
   if (menuMode == 0) { test1(); endMenu(); } else
   if (menuMode == 1) { setNumberOfTurn(); endMenu(); } else 
   if (menuMode == 2) { drawSin(); endMenu(); } else
-  if (menuMode == 3) { drawSin(); endMenu(); } else
+  if (menuMode == 3) { drawSin(); endMenu(); } else 
   if (menuMode == 4) { setContrast(); endMenu(); } else
   if (menuMode == 5) { drawSin(); endMenu(); } else
   if (menuMode == 6) { drawSin(); endMenu(); } else
