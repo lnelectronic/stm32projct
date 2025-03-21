@@ -109,7 +109,6 @@ void drawLineV(int16_t x, int16_t y0, int16_t y1, uint16_t c)
 // --------------------------------------------------------------------------
 
 char buf[25], buf2[25];
-
 int numT = 0;
 int curT = 0;
 float bufT[300];
