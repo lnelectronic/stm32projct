@@ -18,9 +18,9 @@ N5110_SPI lcd(N5110_RST, N5110_CS, N5110_DC); // RST,CS,DC */
 
 
 //rotary encoder pin    
-#define encoderPinA     PB9
-#define encoderPinB     PB8
-#define encoderButton   PB7
+#define encoderPinA     PB8 // CLK
+#define encoderPinB     PB9 // DT
+#define encoderButton   PB7 // SW
 
 //Nokia 5110-related libraries
 #include "math.h"
@@ -47,14 +47,45 @@ N5110_SPI lcd(N5110_RST, N5110_CS, N5110_DC, N5110_DIN, N5110_CLK); // RST,CS,DC
 volatile int encoderPos = 0;
 volatile float numberOfTurns = 130;
 
+ int turnNumber = 150;
+
 char str_temp[7]; //for printing floats
 
 void buttonInt() {}
 
 void readEncoderInt()
 {
-  (digitalRead(encoderPinA) == digitalRead(encoderPinB)) ? encoderPos++ : encoderPos--;
+    static int lastStateA = HIGH;  // Store last known state of encoder A
+
+    int stateA = digitalRead(encoderPinA);  // Read current state of encoder A
+    int stateB = digitalRead(encoderPinB);  // Read current state of encoder B
+
+    // Check if the encoder A has changed state (to avoid noise issues)
+    if (stateA != lastStateA) {
+        if (stateA == LOW) {  // Only process on LOW transition (more reliable)
+            if (stateB != stateA) {
+                encoderPos++;  // Clockwise rotation
+            } else {
+                encoderPos--;  // Counterclockwise rotation
+            }
+        }
+    }
+
+    lastStateA = stateA;  // Store last state of encoder A
 }
+// void readEncoderInt()
+// {
+//   //(digitalRead(encoderPinA) == digitalRead(encoderPinB)) ? encoderPos++ : encoderPos--;
+//   if (digitalRead(encoderPinA) == digitalRead(encoderPinB)) {
+//     encoderPos++;
+//     delay(1);
+//     //encoderPos += 1;
+//   } else {
+//     encoderPos--;
+//     delay(1);
+//     //encoderPos -= 1;
+//   }
+// }
 
 int readButton()
 {
@@ -109,6 +140,7 @@ void drawLineV(int16_t x, int16_t y0, int16_t y1, uint16_t c)
 // --------------------------------------------------------------------------
 
 char buf[25], buf2[25];
+
 int numT = 0;
 int curT = 0;
 float bufT[300];
@@ -132,14 +164,57 @@ int submenuStart;
 int subnumScrLines = 6;// 6 lines of text on screen
 int submenuMode = -1; // -1 -> menu of options, 0..n -> option
 int suboldPos = 0;
+//
+
+// Global variables for rotary encoder
+//int encoderState;
+//int turnNumber = 150;  // Initial value
+int encoderLastState = 0;  // Stores the last state of encoder
+const int minValue = 0;    // Minimum allowed value
+const int maxValue = 255;  // Maximum allowed value
+
+
+//Statuses of the DT and CLK pins on the encoder
+int CLKNow;
+int CLKPrevious;
+int DTNow;
+int DTPrevious;
 
 int blinkTimer = 100; //timer for blinking the LED on the microcontroller
 bool blinkStatus = true;
 
+static bool inSubmenu = false;
+static bool inMainmenu = true;
+
+// add new menu
+
+int menuIndex = 0;
+int submenuIndex = 0;
+//bool inSubmenu = false;
+
+const char* mainMenu[] = {
+    "1. Start",
+    "2. Settings",
+    "3. Info",
+    "4. Exit"
+};
+
+const char* settingsMenu[] = {
+    "1. Contrast",
+    "2. Brightness",
+    "3. Back"
+};
+
+const int mainMenuSize = sizeof(mainMenu) / sizeof(mainMenu[0]);
+const int settingsMenuSize = sizeof(settingsMenu) / sizeof(settingsMenu[0]);
+
+//***** */
+
+void displayMenu();
 
 void setup()
 {
-  //Serial.begin(115200);
+  Serial.begin(115200);
 
 //Starting up the Nokia 5110 LCD
 lcd.init(); //initialize LCD  
@@ -155,6 +230,7 @@ delay(300);
   numMenus = sizeof(menuTxt) / sizeof(char*);
   /* pinMode(N5110_BACKLIGHT, OUTPUT);
   analogWrite(N5110_BACKLIGHT, 0); // 0=max */
+  //displayMenu();
 }
 
 
@@ -254,6 +330,7 @@ void showHelp2()
   lcd.setCR(1);
   lcd.printStr(0, 1, "Test Help 2");
   lcd.setCR(0);
+
 }
 
 
@@ -273,39 +350,70 @@ void setContrast()
   lcd.setContrast(encoderPos * 2);
 }
 
-
-void setNumberOfTurn()
+void setTurnNumber1()
 {
-  /* if (encoderPos > 84) encoderPos = 84;
-  snprintf(buf, 6, " %d ", encoderPos * 255 / 84);
-  lcd.setFont(Small5x7PL);
-  lcd.setCharMinWd(5);
-  lcd.setDigitMinWd(5);
-  lcd.printStr(ALIGN_CENTER, 1, buf);
-  lcd.printStr(ALIGN_LEFT, 1, "000");
-  lcd.printStr(ALIGN_RIGHT, 1, "255");
-  lcd.fillWin(0, 2, encoderPos, 1, 0xfc);
-  if (encoderPos < 84) lcd.fillWin(encoderPos, 2, 84 - encoderPos, 1, 0);
-  analogWrite(N5110_BACKLIGHT, 255 - encoderPos * 3); */
+    // Read encoder movement
+    static int lastEncoderPos = 0;
+    if (encoderPos != lastEncoderPos) {
+        turnNumber += (encoderPos - lastEncoderPos);  // Adjust turnNumber based on encoder movement
+        lastEncoderPos = encoderPos;  // Update last position
+    }else{
+      turnNumber -= (encoderPos - lastEncoderPos);  // Adjust turnNumber based on encoder movement
+        lastEncoderPos = encoderPos;  // Update last position
 
+    }
 
-      lcd.setFont(c64enh);
-      //lcd.printStr(ALIGN_CENTER, 0, emptyStr);
-      lcd.printStr(ALIGN_CENTER, 0, "Turns");
-      //lcd.setFont(c64enh);
-      lcd.setFont(Small5x7PL);
-      //dtostrf(numberOfTurns, 4, 0, buf); //dtostrf is used/necessary for floats
-      //snprintf(buf, 8, "%s", encoderPos);  
-      snprintf(buf, sizeof(buf), "%d", encoderPos);
-      lcd.printStr(ALIGN_CENTER, 2, buf);    
-      
+    // Keep turnNumber within range (0 to 9999)
+    turnNumber = constrain(turnNumber, 0, 9999);
 
-      lcd.setFont(c64enh);
-      
-      lcd.printStr(ALIGN_CENTER, 4, buf);
-      lcd.printStr(ALIGN_CENTER, 5, buf);
+    // Format and display the value on LCD
+    snprintf(buf, 6, " %d ", turnNumber);
+    lcd.setFont(Small5x7PL);
+    lcd.setCharMinWd(5);
+    lcd.setDigitMinWd(5);
+    lcd.printStr(ALIGN_CENTER, 1, buf);
+    lcd.printStr(ALIGN_LEFT, 1, "000");
+    lcd.printStr(ALIGN_RIGHT, 1, "255");
+    Serial.print("Turn Number: ");
+    Serial.println(turnNumber);
 }
-void (*avr_reset)(void) = 0;
+void setTurnNumber()
+{
+     int encoderState = digitalRead(encoderPinB);  // Read encoder state
+
+    // Check if the encoder state has changed
+    if (encoderState != encoderLastState  && encoderState == 0) {
+        if (digitalRead(encoderPinA) == encoderState) {   //!= means not equal
+            turnNumber++;  // Clockwise rotation → Increase value
+        }
+        else
+        {
+          if (turnNumber == 1) // when it is = 1
+          {
+            // Don't decrease further, it should be at least 1
+          }
+          else
+          {
+            turnNumber--; // 1 step size decrement
+          }
+          // turnNumber--;  // Counterclockwise rotation → Decrease value
+        }
+
+        // Limit turnNumber within allowed range values,minValue , maxValue
+        turnNumber = constrain(turnNumber, 0, 9999);  
+        
+        // Format and display the value on LCD
+        snprintf(buf, 6, " %d ", turnNumber);
+        lcd.setFont(Small5x7PL);
+        lcd.setCharMinWd(5);
+        lcd.setDigitMinWd(5);
+        lcd.printStr(ALIGN_CENTER, 1, buf);
+        lcd.printStr(ALIGN_LEFT, 1, "000");
+        lcd.printStr(ALIGN_RIGHT, 1, "255");
+    }
+
+    encoderLastState = encoderState;  // Update last encoder state
+}
 
 
 void setMenu(int m)
@@ -322,6 +430,23 @@ void endMenu()
     menuMode = -1;
     lcd.clrScr();
     encoderPos = oldPos;
+  }
+}
+void setMenu1(int m)
+{
+  menuMode = m;
+  lcd.clrScr();
+  encoderLastState = encoderPos;
+  encoderPos = 0;
+}
+
+
+void endMenu1()
+{
+  if (readButton() > 0) {
+    menuMode = -1;
+    lcd.clrScr();
+    encoderPos = encoderLastState;
   }
 }
 
@@ -379,8 +504,7 @@ void drawSubMenuSlider()
 ///******* */
 
 void test1()
-{
-  
+{  
   //lcd.setFont(Small5x7PL);
   lcd.setFont(Small5x7PL);
   lcd.setCharMinWd(5);
@@ -395,6 +519,7 @@ void test1()
         blinkStatus = !blinkStatus;
         blinkTimer = millis(); 
     }*/
+      printf("test1 step 1");
     submenuLine = encoderPos / 2;
     if (submenuLine >= subnumMenus) {
       submenuLine = subnumMenus - 1;
@@ -407,6 +532,7 @@ void test1()
         lcd.setInvert(i + submenuStart == submenuLine ? 1 : 0);
         formatMenu(menuTxt2[i + submenuStart], buf2, 13);
         lcd.printStr(ALIGN_LEFT, i, buf2);
+        printf(buf2);
       }
     }
     drawSubMenuSlider();
@@ -424,6 +550,7 @@ void test1()
   if (submenuMode == 5) { showHelp2(); endsubMenu(); } else  
   {  submenuMode = -1; lcd.clrScr(); }
 }
+
 
 void handleMenu()
 {
@@ -449,7 +576,7 @@ void handleMenu()
     }
     drawMenuSlider();
     if (readButton()) {
-      setMenu(menuLine);
+      setMenu1(menuLine);
       if (menuLine == 3) encoderPos = 84; // setBacklight
       if (menuLine == 4) encoderPos = 0x30 / 2; // setContrast
     }
@@ -461,8 +588,8 @@ void handleMenu()
   if (menuMode == 4) { showHelp(); endMenu(); } else */
 
 
-  if (menuMode == 0) { test1(); endMenu(); } else
-  if (menuMode == 1) { setNumberOfTurn(); endMenu(); } else 
+  if (menuMode == 0) { setTurnNumber1(); endMenu(); } else
+  if (menuMode == 1) { setTurnNumber(); endMenu(); } else 
   if (menuMode == 2) { drawSin(); endMenu(); } else
   if (menuMode == 3) { drawSin(); endMenu(); } else 
   if (menuMode == 4) { setContrast(); endMenu(); } else
@@ -473,7 +600,243 @@ void handleMenu()
   {  menuMode = -1; lcd.clrScr(); }
 }
 
+
+// test function
+
+void handleMenu1()
+{
+  if(inSubmenu)
+  {
+    
+    // lcd.setFont(Small5x7PL); // set font
+    lcd.setFont(Small5x7PL);
+    lcd.setCharMinWd(5);
+    lcd.setDigitMinWd(5);
+    if (encoderPos < 0)
+      encoderPos = 0;
+    if (menuMode == -1)
+    {
+      menuLine = encoderPos / 2;
+      if (menuLine >= numMenus)
+      {
+        menuLine = numMenus - 1;
+        encoderPos = menuLine * 2;
+      }
+      if (menuLine >= menuStart + numScrLines)
+        menuStart = menuLine - numScrLines + 1;
+      if (menuLine < menuStart)
+        menuStart = menuLine;
+      for (int i = 0; i < numScrLines; i++)
+      {
+        if (i + menuStart < numMenus)
+        {
+          lcd.setInvert(i + menuStart == menuLine ? 1 : 0);
+          formatMenu(menuTxt2[i + menuStart], buf, 13);
+          lcd.printStr(ALIGN_LEFT, i, buf);
+        }
+      }
+      drawMenuSlider();
+      if (readButton())
+      {
+        setMenu(menuLine);
+        if (menuLine == 3)
+          encoderPos = 84; // setBacklight
+        if (menuLine == 4)
+          encoderPos = 0x30 / 2; // setContrast
+      }
+    }
+    else
+      
+    if (menuMode == 0) { test1(); endMenu(); } else
+    if (menuMode == 1) { setTurnNumber(); endMenu(); } else 
+    if (menuMode == 2) { drawSin(); endMenu(); } else
+    if (menuMode == 3) { drawSin(); endMenu(); } else 
+    if (menuMode == 4) { setContrast(); endMenu(); } else
+    if (menuMode == 5) { drawSin(); endMenu(); } else
+    if (menuMode == 6) { drawSin(); endMenu(); } else
+    if (menuMode == 7) { showHelp(); endMenu(); } else
+    if (menuMode == 8) { showHelp(); endMenu(); } else 
+    {  menuMode = -1; lcd.clrScr(); }
+  }
+
+  
+   else 
+  {
+    /* code */
+
+    // lcd.setFont(Small5x7PL); // set font
+    lcd.setFont(Small5x7PL);
+    lcd.setCharMinWd(5);
+    lcd.setDigitMinWd(5);
+    if (encoderPos < 0)
+      encoderPos = 0;
+    if (menuMode == -1)
+    {
+      menuLine = encoderPos / 2;
+      if (menuLine >= numMenus)
+      {
+        menuLine = numMenus - 1;
+        encoderPos = menuLine * 2;
+      }
+      if (menuLine >= menuStart + numScrLines)
+        menuStart = menuLine - numScrLines + 1;
+      if (menuLine < menuStart)
+        menuStart = menuLine;
+      for (int i = 0; i < numScrLines; i++)
+      {
+        if (i + menuStart < numMenus)
+        {
+          lcd.setInvert(i + menuStart == menuLine ? 1 : 0);
+          formatMenu(menuTxt[i + menuStart], buf, 13);
+          lcd.printStr(ALIGN_LEFT, i, buf);
+        }
+      }
+      drawMenuSlider();
+      if (readButton())
+      {
+        setMenu(menuLine);
+        if (menuLine == 3)
+          encoderPos = 84; // setBacklight
+        if (menuLine == 4)
+          encoderPos = 0x30 / 2; // setContrast
+      }
+    }
+    else
+      
+    if (menuMode == 0) { showHelp2(); endMenu(); } else
+    if (menuMode == 1) { setTurnNumber(); endMenu(); } else 
+    if (menuMode == 2) { drawSin(); endMenu(); } else
+    if (menuMode == 3) { drawSin(); endMenu(); } else 
+    if (menuMode == 4) { setContrast(); endMenu(); } else
+    if (menuMode == 5) { drawSin(); endMenu(); } else
+    if (menuMode == 6) { drawSin(); endMenu(); } else
+    if (menuMode == 7) { showHelp(); endMenu(); } else
+    if (menuMode == 8) { showHelp(); endMenu(); } else 
+    {  menuMode = -1; lcd.clrScr(); }
+  }
+ 
+  
+}
+// test function.
+
+
+void updateEncoder() {
+ // encoderPos.tick();
+  //int newPos = encoder.getPosition();
+ int newPos = encoderPos;
+  
+  if (!inSubmenu) {
+      menuIndex = constrain(newPos, 0, mainMenuSize - 1);
+  } else {
+      submenuIndex = constrain(newPos, 0, settingsMenuSize - 1);
+  }
+
+  displayMenu();
+}
+
+void displayMenu() {
+  //lcd.clrScr();
+  
+  if (!inSubmenu) {
+      lcd.setCR(0);
+      lcd.printStr(ALIGN_CENTER,0,"Main Menu:");
+      for (int i = 0; i < mainMenuSize; i++) {
+          if (i == menuIndex) lcd.printStr(0,1,"> ");
+          //lcd.printStr(mainMenu[i]);
+          lcd.printStr(ALIGN_LEFT, i, mainMenu[i]);
+      }
+  } else {
+      lcd.setCR(0);
+      lcd.printStr(0,1,"Settings:");
+      for (int i = 0; i < settingsMenuSize; i++) {
+          if (i == submenuIndex) lcd.printStr(0,1,"> ");
+          lcd.printStr(ALIGN_LEFT, i, mainMenu[i]);
+      }
+  }
+
+  lcd.clrScr();
+}
+
+void selectMenu() {
+  if (!inSubmenu) {
+      if (menuIndex == 1) {  // "Settings" Selected
+          inSubmenu = true;
+          submenuIndex = 0;
+          //encoder.setPosition(0);
+          encoderPos = 0;
+          lcd.printStr(0,1,"slecrmenu1:");
+      } else if (menuIndex == 3) {  // "Exit" Selected
+          lcd.clrScr();
+          lcd.setCR(0);
+          //lcd.setBias(4);
+          lcd.printStr(0,1,"slecrmenu2:");
+          delay(1000);
+      }
+  } else {
+      if (submenuIndex == 2) {  // "Back" Selected
+          inSubmenu = false;
+          //encoder.setPosition(menuIndex);
+          encoderPos = menuIndex;
+          lcd.printStr(0,1,"slecrmenu3:");
+      }
+  }
+
+  displayMenu();
+}
+
+void disPlaytest()
+{
+  if (inMainmenu)
+  {
+    //inMainmenu = false;
+    lcd.setFont(Small5x7PL);
+    lcd.setCharMinWd(5);
+    lcd.setDigitMinWd(5);
+    // lcd.printStr(ALIGN_CENTER, 0, "Main Menu:");
+    // lcd.printStr(ALIGN_LEFT, 1, "1. Start");
+    // lcd.printStr(ALIGN_LEFT, 2, "2. Settings");
+    // lcd.printStr(ALIGN_LEFT, 3, "3. Info");
+    if (encoderPos < 0) encoderPos = 0;
+  if (menuMode == -1) {
+    menuLine = encoderPos / 2;
+    if (menuLine >= numMenus) {
+      menuLine = numMenus - 1;
+      encoderPos = menuLine * 2;
+    }
+    if (menuLine >= menuStart + numScrLines) menuStart = menuLine - numScrLines + 1;
+    if (menuLine < menuStart) menuStart = menuLine;
+    for (int i = 0; i < numScrLines; i++) {
+      if (i + menuStart < numMenus) {
+        lcd.setInvert(i + menuStart == menuLine ? 1 : 0);
+        formatMenu(menuTxt[i + menuStart], buf, 13);
+        lcd.printStr(ALIGN_LEFT, i, buf);
+      }
+    }
+    drawMenuSlider();
+    if (readButton()) {
+      setMenu(menuLine);
+      if (menuLine == 3) encoderPos = 84; // setBacklight
+      if (menuLine == 4) encoderPos = 0x30 / 2; // setContrast
+    }
+  } else 
+  if (menuMode == 0) { setTurnNumber(); endMenu(); } else
+  if (menuMode == 1) { setTurnNumber(); endMenu(); } else 
+  if (menuMode == 2) { drawSin(); endMenu(); } else
+  if (menuMode == 3) { drawSin(); endMenu(); } else 
+  if (menuMode == 4) { setContrast(); endMenu(); } else
+  if (menuMode == 5) { drawSin(); endMenu(); } else
+  if (menuMode == 6) { drawSin(); endMenu(); } else
+  if (menuMode == 7) { showHelp(); endMenu(); } else
+  if (menuMode == 8) { showHelp(); endMenu(); } else 
+  {  menuMode = -1; lcd.clrScr(); }
+
+  }
+}
+
 void loop()
 {
   handleMenu();
+ //selectMenu();
+  //delay(300);  // Debounce
 }
+
