@@ -355,19 +355,19 @@ void setTurnNumber1()
     // Read encoder movement
     static int lastEncoderPos = 0;
     if (encoderPos != lastEncoderPos) {
-        turnNumber += (encoderPos - lastEncoderPos);  // Adjust turnNumber based on encoder movement
+        numberOfTurns += (encoderPos - lastEncoderPos);  // Adjust turnNumber based on encoder movement
         lastEncoderPos = encoderPos;  // Update last position
     }else{
-      turnNumber -= (encoderPos - lastEncoderPos);  // Adjust turnNumber based on encoder movement
+      numberOfTurns -= (encoderPos - lastEncoderPos);  // Adjust turnNumber based on encoder movement
         lastEncoderPos = encoderPos;  // Update last position
 
     }
 
     // Keep turnNumber within range (0 to 9999)
-    turnNumber = constrain(turnNumber, 0, 9999);
+    numberOfTurns = constrain(numberOfTurns, 0, 9999);
 
     // Format and display the value on LCD
-    snprintf(buf, 6, " %d ", turnNumber);
+    snprintf(buf, 6, " %d ", numberOfTurns);
     lcd.setFont(Small5x7PL);
     lcd.setCharMinWd(5);
     lcd.setDigitMinWd(5);
@@ -375,7 +375,7 @@ void setTurnNumber1()
     lcd.printStr(ALIGN_LEFT, 1, "000");
     lcd.printStr(ALIGN_RIGHT, 1, "255");
     Serial.print("Turn Number: ");
-    Serial.println(turnNumber);
+    Serial.println(numberOfTurns);
 }
 void setTurnNumber()
 {
@@ -581,13 +581,6 @@ void handleMenu()
       if (menuLine == 4) encoderPos = 0x30 / 2; // setContrast
     }
   } else 
-  /* if (menuMode == 0) { showHelp(); endMenu(); } else
-  if (menuMode == 1) { showHelp(); endMenu(); } else
-  if (menuMode == 2) { setContrast(); endMenu(); } else
-  if (menuMode == 3) { drawSin(); endMenu(); } else
-  if (menuMode == 4) { showHelp(); endMenu(); } else */
-
-
   if (menuMode == 0) { setTurnNumber1(); endMenu(); } else
   if (menuMode == 1) { setTurnNumber(); endMenu(); } else 
   if (menuMode == 2) { drawSin(); endMenu(); } else
@@ -601,123 +594,6 @@ void handleMenu()
 }
 
 
-// test function
-
-void handleMenu1()
-{
-  if(inSubmenu)
-  {
-    
-    // lcd.setFont(Small5x7PL); // set font
-    lcd.setFont(Small5x7PL);
-    lcd.setCharMinWd(5);
-    lcd.setDigitMinWd(5);
-    if (encoderPos < 0)
-      encoderPos = 0;
-    if (menuMode == -1)
-    {
-      menuLine = encoderPos / 2;
-      if (menuLine >= numMenus)
-      {
-        menuLine = numMenus - 1;
-        encoderPos = menuLine * 2;
-      }
-      if (menuLine >= menuStart + numScrLines)
-        menuStart = menuLine - numScrLines + 1;
-      if (menuLine < menuStart)
-        menuStart = menuLine;
-      for (int i = 0; i < numScrLines; i++)
-      {
-        if (i + menuStart < numMenus)
-        {
-          lcd.setInvert(i + menuStart == menuLine ? 1 : 0);
-          formatMenu(menuTxt2[i + menuStart], buf, 13);
-          lcd.printStr(ALIGN_LEFT, i, buf);
-        }
-      }
-      drawMenuSlider();
-      if (readButton())
-      {
-        setMenu(menuLine);
-        if (menuLine == 3)
-          encoderPos = 84; // setBacklight
-        if (menuLine == 4)
-          encoderPos = 0x30 / 2; // setContrast
-      }
-    }
-    else
-      
-    if (menuMode == 0) { test1(); endMenu(); } else
-    if (menuMode == 1) { setTurnNumber(); endMenu(); } else 
-    if (menuMode == 2) { drawSin(); endMenu(); } else
-    if (menuMode == 3) { drawSin(); endMenu(); } else 
-    if (menuMode == 4) { setContrast(); endMenu(); } else
-    if (menuMode == 5) { drawSin(); endMenu(); } else
-    if (menuMode == 6) { drawSin(); endMenu(); } else
-    if (menuMode == 7) { showHelp(); endMenu(); } else
-    if (menuMode == 8) { showHelp(); endMenu(); } else 
-    {  menuMode = -1; lcd.clrScr(); }
-  }
-
-  
-   else 
-  {
-    /* code */
-
-    // lcd.setFont(Small5x7PL); // set font
-    lcd.setFont(Small5x7PL);
-    lcd.setCharMinWd(5);
-    lcd.setDigitMinWd(5);
-    if (encoderPos < 0)
-      encoderPos = 0;
-    if (menuMode == -1)
-    {
-      menuLine = encoderPos / 2;
-      if (menuLine >= numMenus)
-      {
-        menuLine = numMenus - 1;
-        encoderPos = menuLine * 2;
-      }
-      if (menuLine >= menuStart + numScrLines)
-        menuStart = menuLine - numScrLines + 1;
-      if (menuLine < menuStart)
-        menuStart = menuLine;
-      for (int i = 0; i < numScrLines; i++)
-      {
-        if (i + menuStart < numMenus)
-        {
-          lcd.setInvert(i + menuStart == menuLine ? 1 : 0);
-          formatMenu(menuTxt[i + menuStart], buf, 13);
-          lcd.printStr(ALIGN_LEFT, i, buf);
-        }
-      }
-      drawMenuSlider();
-      if (readButton())
-      {
-        setMenu(menuLine);
-        if (menuLine == 3)
-          encoderPos = 84; // setBacklight
-        if (menuLine == 4)
-          encoderPos = 0x30 / 2; // setContrast
-      }
-    }
-    else
-      
-    if (menuMode == 0) { showHelp2(); endMenu(); } else
-    if (menuMode == 1) { setTurnNumber(); endMenu(); } else 
-    if (menuMode == 2) { drawSin(); endMenu(); } else
-    if (menuMode == 3) { drawSin(); endMenu(); } else 
-    if (menuMode == 4) { setContrast(); endMenu(); } else
-    if (menuMode == 5) { drawSin(); endMenu(); } else
-    if (menuMode == 6) { drawSin(); endMenu(); } else
-    if (menuMode == 7) { showHelp(); endMenu(); } else
-    if (menuMode == 8) { showHelp(); endMenu(); } else 
-    {  menuMode = -1; lcd.clrScr(); }
-  }
- 
-  
-}
-// test function.
 
 
 void updateEncoder() {
