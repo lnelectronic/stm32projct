@@ -686,7 +686,6 @@ void showConfig() {
     while (!readButton()) {
         delay(50);
     }
-    lcd.clrScr();
 }
 
 void loop() {
